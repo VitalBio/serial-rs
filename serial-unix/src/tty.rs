@@ -216,7 +216,7 @@ impl SerialDevice for TTYPort {
 
     fn set_timeout_non_blocking(&mut self) -> core::Result<()> {
 		// Not the right way to do this on *nix, but just a placeholder for now
-        self.timeout = 0;
+        self.timeout = Duration::from_millis(0);;
         Ok(())
     }
 
