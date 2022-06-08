@@ -5,9 +5,9 @@ use std::time::Duration;
 
 pub use BaudRate::*;
 pub use CharSize::*;
+pub use FlowControl::*;
 pub use Parity::*;
 pub use StopBits::*;
-pub use FlowControl::*;
 
 /// A module that exports traits that are useful to have in scope.
 ///
@@ -29,7 +29,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// This list is intended to grow over time and it is not recommended to exhaustively match against
 /// it.
-#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
     /// The device is not available.
     ///
@@ -88,9 +88,9 @@ impl From<io::Error> for Error {
 impl From<Error> for io::Error {
     fn from(error: Error) -> io::Error {
         let kind = match error.kind {
-            ErrorKind::NoDevice     => io::ErrorKind::NotFound,
+            ErrorKind::NoDevice => io::ErrorKind::NotFound,
             ErrorKind::InvalidInput => io::ErrorKind::InvalidInput,
-            ErrorKind::Io(kind)     => kind,
+            ErrorKind::Io(kind) => kind,
         };
 
         io::Error::new(kind, error.description)
@@ -105,7 +105,7 @@ impl From<Error> for io::Error {
 /// that are widely-supported on many systems. While non-standard baud rates can be set with
 /// `BaudOther`, their behavior is system-dependent. Some systems may not support arbitrary baud
 /// rates. Using the standard baud rates is more likely to result in portable applications.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BaudRate {
     /// 110 baud.
     Baud110,
@@ -169,18 +169,18 @@ impl BaudRate {
     /// ```
     pub fn from_speed(speed: usize) -> BaudRate {
         match speed {
-            110    => BaudRate::Baud110,
-            300    => BaudRate::Baud300,
-            600    => BaudRate::Baud600,
-            1200   => BaudRate::Baud1200,
-            2400   => BaudRate::Baud2400,
-            4800   => BaudRate::Baud4800,
-            9600   => BaudRate::Baud9600,
-            19200  => BaudRate::Baud19200,
-            38400  => BaudRate::Baud38400,
-            57600  => BaudRate::Baud57600,
+            110 => BaudRate::Baud110,
+            300 => BaudRate::Baud300,
+            600 => BaudRate::Baud600,
+            1200 => BaudRate::Baud1200,
+            2400 => BaudRate::Baud2400,
+            4800 => BaudRate::Baud4800,
+            9600 => BaudRate::Baud9600,
+            19200 => BaudRate::Baud19200,
+            38400 => BaudRate::Baud38400,
+            57600 => BaudRate::Baud57600,
             115200 => BaudRate::Baud115200,
-            n      => BaudRate::BaudOther(n),
+            n => BaudRate::BaudOther(n),
         }
     }
 
@@ -196,24 +196,24 @@ impl BaudRate {
     /// ```
     pub fn speed(&self) -> usize {
         match *self {
-            BaudRate::Baud110      => 110,
-            BaudRate::Baud300      => 300,
-            BaudRate::Baud600      => 600,
-            BaudRate::Baud1200     => 1200,
-            BaudRate::Baud2400     => 2400,
-            BaudRate::Baud4800     => 4800,
-            BaudRate::Baud9600     => 9600,
-            BaudRate::Baud19200    => 19200,
-            BaudRate::Baud38400    => 38400,
-            BaudRate::Baud57600    => 57600,
-            BaudRate::Baud115200   => 115200,
+            BaudRate::Baud110 => 110,
+            BaudRate::Baud300 => 300,
+            BaudRate::Baud600 => 600,
+            BaudRate::Baud1200 => 1200,
+            BaudRate::Baud2400 => 2400,
+            BaudRate::Baud4800 => 4800,
+            BaudRate::Baud9600 => 9600,
+            BaudRate::Baud19200 => 19200,
+            BaudRate::Baud38400 => 38400,
+            BaudRate::Baud57600 => 57600,
+            BaudRate::Baud115200 => 115200,
             BaudRate::BaudOther(n) => n,
         }
     }
 }
 
 /// Number of bits per character.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CharSize {
     /// 5 bits per character.
     Bits5,
@@ -237,7 +237,7 @@ pub enum CharSize {
 ///
 /// Parity checking is disabled by setting `ParityNone`, in which case parity bits are not
 /// transmitted.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Parity {
     /// No parity bit.
     ParityNone,
@@ -252,7 +252,7 @@ pub enum Parity {
 /// Number of stop bits.
 ///
 /// Stop bits are transmitted after every character.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum StopBits {
     /// One stop bit.
     Stop1,
@@ -262,7 +262,7 @@ pub enum StopBits {
 }
 
 /// Flow control modes.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FlowControl {
     /// No flow control.
     FlowNone,
@@ -345,6 +345,9 @@ pub trait SerialDevice: io::Read + io::Write {
 
     /// Sets the timeout for future I/O operations.
     fn set_timeout(&mut self, timeout: Duration) -> ::Result<()>;
+
+    /// Sets the timeout so that I/O operations are non-blocking.
+    fn set_timeout_non_blocking(&mut self) -> ::Result<()>;
 
     /// Sets the state of the RTS (Request To Send) control signal.
     ///
@@ -574,7 +577,8 @@ pub trait SerialPort: io::Read + io::Write {
 }
 
 impl<T> SerialPort for T
-    where T: SerialDevice
+where
+    T: SerialDevice,
 {
     fn timeout(&self) -> Duration {
         T::timeout(self)
@@ -690,7 +694,7 @@ pub trait SerialPortSettings {
 }
 
 /// A device-indepenent implementation of serial port settings.
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct PortSettings {
     /// Baud rate.
     pub baud_rate: BaudRate,
