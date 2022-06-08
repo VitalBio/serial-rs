@@ -214,6 +214,12 @@ impl SerialDevice for TTYPort {
         Ok(())
     }
 
+    fn set_timeout_non_blocking(&mut self) -> core::Result<()> {
+		// Not the right way to do this on *nix, but just a placeholder for now
+        self.timeout = 0;
+        Ok(())
+    }
+
     fn set_rts(&mut self, level: bool) -> core::Result<()> {
         self.set_pin(ioctl::TIOCM_RTS, level)
     }
