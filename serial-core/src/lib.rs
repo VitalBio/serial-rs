@@ -445,6 +445,9 @@ pub trait SerialPort: io::Read + io::Write {
     /// Sets the timeout for future I/O operations.
     fn set_timeout(&mut self, timeout: Duration) -> ::Result<()>;
 
+    /// Sets the timeout so that I/O operations are non-blocking.
+    fn set_timeout_non_blocking(&mut self) -> ::Result<()>;
+
     /// Configures a serial port device.
     ///
     /// ## Errors
@@ -586,6 +589,10 @@ where
 
     fn set_timeout(&mut self, timeout: Duration) -> ::Result<()> {
         T::set_timeout(self, timeout)
+    }
+
+    fn set_timeout_non_blocking(&mut self) -> ::Result<()> {
+        T::set_timeout_non_blocking(self)
     }
 
     fn configure(&mut self, settings: &PortSettings) -> ::Result<()> {
