@@ -1,5 +1,5 @@
-use core;
 use crate::error;
+use core;
 
 use std::ffi::OsStr;
 use std::io;
@@ -7,19 +7,26 @@ use std::mem;
 use std::ptr;
 use std::time::Duration;
 
-use std::os::windows::io::{AsRawHandle, RawHandle};
-use std::os::windows::ffi::OsStrExt as _;
 use serial_core::{SerialDevice, SerialPortSettings};
+use std::os::windows::ffi::OsStrExt as _;
+use std::os::windows::io::{AsRawHandle, RawHandle};
 
 use libc::c_void;
 
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::ntdef::HANDLE;
-use winapi::um::commapi::{GetCommState, SetCommState, GetCommModemStatus, EscapeCommFunction, SetCommTimeouts};
-use winapi::um::fileapi::{ReadFile, WriteFile, FlushFileBuffers, OPEN_EXISTING, CreateFileW};
+use winapi::um::commapi::{
+    EscapeCommFunction, GetCommModemStatus, GetCommState, SetCommState, SetCommTimeouts,
+};
+use winapi::um::fileapi::{CreateFileW, FlushFileBuffers, ReadFile, WriteFile, OPEN_EXISTING};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
-use winapi::um::winbase::{COMMTIMEOUTS, DCB, SETRTS, CLRRTS, SETDTR, CLRDTR, MS_CTS_ON, MS_DSR_ON, MS_RING_ON, MS_RLSD_ON, CBR_110, CBR_300, CBR_600, CBR_1200, CBR_2400, CBR_4800, CBR_9600, CBR_19200, CBR_38400, CBR_57600, CBR_115200, NOPARITY, ODDPARITY, EVENPARITY, ONESTOPBIT, TWOSTOPBITS, CBR_14400, CBR_56000, CBR_128000, CBR_256000, LPDCB};
-use winapi::um::winnt::{GENERIC_READ, GENERIC_WRITE, FILE_ATTRIBUTE_NORMAL, MAXDWORD};
+use winapi::um::winbase::{
+    CBR_110, CBR_115200, CBR_1200, CBR_128000, CBR_14400, CBR_19200, CBR_2400, CBR_256000,
+    CBR_300, CBR_38400, CBR_4800, CBR_56000, CBR_57600, CBR_600, CBR_9600, CLRDTR, CLRRTS,
+    COMMTIMEOUTS, DCB, EVENPARITY, LPDCB, MS_CTS_ON, MS_DSR_ON, MS_RING_ON, MS_RLSD_ON,
+    NOPARITY, ODDPARITY, ONESTOPBIT, SETDTR, SETRTS, TWOSTOPBITS,
+};
+use winapi::um::winnt::{FILE_ATTRIBUTE_NORMAL, GENERIC_READ, GENERIC_WRITE, MAXDWORD};
 
 /// A serial port implementation for Windows COM ports.
 ///

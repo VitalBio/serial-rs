@@ -1,5 +1,5 @@
-extern crate serial_unix;
 extern crate libc;
+extern crate serial_unix;
 
 use std::io;
 use std::path::Path;

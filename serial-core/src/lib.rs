@@ -500,7 +500,8 @@ pub trait SerialPort: io::Read + io::Write {
     ///     })
     /// }
     /// ```
-    fn reconfigure(&mut self, setup: &impl Fn(&mut Self::Settings) -> Result<()>) -> Result<()>;
+    fn reconfigure(&mut self, setup: &impl Fn(&mut Self::Settings) -> Result<()>)
+        -> Result<()>;
 
     /// Sets the state of the RTS (Request To Send) control signal.
     ///
