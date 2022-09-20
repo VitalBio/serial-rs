@@ -10,7 +10,20 @@ license = "MIT"
 readme = "README.md"
 keywords = ["serial", "hardware", "system", "RS232"]
 categories = ["hardware-support", "os", "os::windows-apis"]
+edition = "2021"
 
 [dependencies]
 serial-core = { version = "0.4", path = "../serial-core" }
 libc = "0.2"
+
+[dependencies.winapi]
+version = "0.3.9"
+features = [
+    "commapi",
+    "errhandlingapi",
+    "fileapi",
+    "handleapi",
+    "minwindef",
+    "winbase",
+    "impl-default"
+]

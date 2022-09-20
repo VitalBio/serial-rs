@@ -1,5 +1,5 @@
 use core;
-use error;
+use crate::error;
 
 use std::ffi::OsStr;
 use std::io;
@@ -7,12 +7,19 @@ use std::mem;
 use std::ptr;
 use std::time::Duration;
 
-use std::os::windows::prelude::*;
+use std::os::windows::io::{AsRawHandle, RawHandle};
+use std::os::windows::ffi::OsStrExt as _;
+use serial_core::{SerialDevice, SerialPortSettings};
 
-use core::{SerialDevice, SerialPortSettings};
-
-use ffi::*;
 use libc::c_void;
+
+use winapi::shared::minwindef::DWORD;
+use winapi::shared::ntdef::HANDLE;
+use winapi::um::commapi::{GetCommState, SetCommState, GetCommModemStatus, EscapeCommFunction, SetCommTimeouts};
+use winapi::um::fileapi::{ReadFile, WriteFile, FlushFileBuffers, OPEN_EXISTING, CreateFileW};
+use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::winbase::{COMMTIMEOUTS, DCB, SETRTS, CLRRTS, SETDTR, CLRDTR, MS_CTS_ON, MS_DSR_ON, MS_RING_ON, MS_RLSD_ON, CBR_110, CBR_300, CBR_600, CBR_1200, CBR_2400, CBR_4800, CBR_9600, CBR_19200, CBR_38400, CBR_57600, CBR_115200, NOPARITY, ODDPARITY, EVENPARITY, ONESTOPBIT, TWOSTOPBITS, CBR_14400, CBR_56000, CBR_128000, CBR_256000, LPDCB};
+use winapi::um::winnt::{GENERIC_READ, GENERIC_WRITE, FILE_ATTRIBUTE_NORMAL, MAXDWORD};
 
 /// A serial port implementation for Windows COM ports.
 ///
@@ -66,7 +73,7 @@ impl COMPort {
                 timeout: timeout,
             };
 
-            try!(port.set_timeout(timeout));
+            port.set_timeout(timeout)?;
             Ok(port)
         } else {
             Err(error::last_os_error())
@@ -81,7 +88,7 @@ impl COMPort {
     }
 
     fn read_pin(&mut self, pin: DWORD) -> core::Result<bool> {
-        let mut status: DWORD = unsafe { mem::uninitialized() };
+        let mut status: DWORD = 0;
 
         match unsafe { GetCommModemStatus(self.handle, &mut status) } {
             0 => Err(error::last_os_error()),
@@ -162,13 +169,13 @@ impl SerialDevice for COMPort {
     type Settings = COMSettings;
 
     fn read_settings(&self) -> core::Result<COMSettings> {
-        let mut dcb = DCB::new();
+        let mut dcb = DCB::default();
 
         match unsafe { GetCommState(self.handle, &mut dcb) } {
             0 => Err(error::last_os_error()),
             _ => {
-                dcb.fBits |= fBinary;
-                dcb.fBits &= fDtrControl;
+                dcb.set_fBinary(1);
+                dcb.set_fDtrControl(0);
 
                 Ok(COMSettings { inner: dcb })
             }
@@ -176,7 +183,7 @@ impl SerialDevice for COMPort {
     }
 
     fn write_settings(&mut self, settings: &COMSettings) -> core::Result<()> {
-        match unsafe { SetCommState(self.handle, &settings.inner) } {
+        match unsafe { SetCommState(self.handle, &settings.inner as *const DCB as LPDCB) } {
             0 => Err(error::last_os_error()),
             _ => Ok(()),
         }
@@ -189,7 +196,7 @@ impl SerialDevice for COMPort {
     fn set_timeout(&mut self, timeout: Duration) -> core::Result<()> {
         let milliseconds = timeout.as_secs() * 1000 + timeout.subsec_nanos() as u64 / 1_000_000;
 
-        let timeouts = COMMTIMEOUTS {
+        let mut timeouts = COMMTIMEOUTS {
             ReadIntervalTimeout: 0,
             ReadTotalTimeoutMultiplier: 0,
             ReadTotalTimeoutConstant: milliseconds as DWORD,
@@ -197,7 +204,7 @@ impl SerialDevice for COMPort {
             WriteTotalTimeoutConstant: 0,
         };
 
-        if unsafe { SetCommTimeouts(self.handle, &timeouts) } == 0 {
+        if unsafe { SetCommTimeouts(self.handle, &mut timeouts) } == 0 {
             return Err(error::last_os_error());
         }
 
@@ -206,7 +213,7 @@ impl SerialDevice for COMPort {
     }
 
     fn set_timeout_non_blocking(&mut self) -> core::Result<()> {
-        let timeouts = COMMTIMEOUTS {
+        let mut timeouts = COMMTIMEOUTS {
             ReadIntervalTimeout: MAXDWORD,
             ReadTotalTimeoutMultiplier: 0,
             ReadTotalTimeoutConstant: 0,
@@ -214,7 +221,7 @@ impl SerialDevice for COMPort {
             WriteTotalTimeoutConstant: 0,
         };
 
-        if unsafe { SetCommTimeouts(self.handle, &timeouts) } == 0 {
+        if unsafe { SetCommTimeouts(self.handle, &mut timeouts) } == 0 {
             return Err(error::last_os_error());
         }
 
@@ -256,9 +263,32 @@ impl SerialDevice for COMPort {
 }
 
 /// Serial port settings for COM ports.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct COMSettings {
     inner: DCB,
+}
+
+impl std::fmt::Debug for COMSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "COMSettings {{")?;
+        write!(f, "DCBlength: {}", self.inner.DCBlength)?;
+        write!(f, "BaudRate: {}", self.inner.BaudRate)?;
+        write!(f, "BitFields: {}", self.inner.BitFields)?;
+        write!(f, "wReserved: {}", self.inner.wReserved)?;
+        write!(f, "XonLim: {}", self.inner.XonLim)?;
+        write!(f, "XoffLim: {}", self.inner.XoffLim)?;
+        write!(f, "ByteSize: {}", self.inner.ByteSize)?;
+        write!(f, "Parity: {}", self.inner.Parity)?;
+        write!(f, "StopBits: {}", self.inner.StopBits)?;
+        write!(f, "XonChar: {}", self.inner.XonChar)?;
+        write!(f, "XoffChar: {}", self.inner.XoffChar)?;
+        write!(f, "ErrorChar: {}", self.inner.ErrorChar)?;
+        write!(f, "EofChar: {}", self.inner.EofChar)?;
+        write!(f, "EvtChar: {}", self.inner.EvtChar)?;
+        write!(f, "wReserved1: {}", self.inner.wReserved1)?;
+        write!(f, "}}")?;
+        Ok(())
+    }
 }
 
 impl SerialPortSettings for COMSettings {
@@ -311,9 +341,9 @@ impl SerialPortSettings for COMSettings {
     }
 
     fn flow_control(&self) -> Option<core::FlowControl> {
-        if self.inner.fBits & (fOutxCtsFlow | fRtsControl) != 0 {
+        if self.inner.fOutxCtsFlow() != 0 || self.inner.fRtsControl() != 0 {
             Some(core::FlowHardware)
-        } else if self.inner.fBits & (fOutX | fInX) != 0 {
+        } else if self.inner.fOutX() != 0 || self.inner.fInX() != 0 {
             Some(core::FlowSoftware)
         } else {
             Some(core::FlowNone)
@@ -356,9 +386,9 @@ impl SerialPortSettings for COMSettings {
         };
 
         if parity == core::ParityNone {
-            self.inner.fBits &= !fParity;
+            self.inner.set_fParity(0);
         } else {
-            self.inner.fBits |= fParity;
+            self.inner.set_fParity(1);
         }
     }
 
@@ -372,16 +402,22 @@ impl SerialPortSettings for COMSettings {
     fn set_flow_control(&mut self, flow_control: core::FlowControl) {
         match flow_control {
             core::FlowNone => {
-                self.inner.fBits &= !(fOutxCtsFlow | fRtsControl);
-                self.inner.fBits &= !(fOutX | fInX);
+                self.inner.set_fOutxCtsFlow(0);
+                self.inner.set_fRtsControl(0);
+                self.inner.set_fOutX(0);
+                self.inner.set_fInX(0);
             }
             core::FlowSoftware => {
-                self.inner.fBits &= !(fOutxCtsFlow | fRtsControl);
-                self.inner.fBits |= fOutX | fInX;
+                self.inner.set_fOutxCtsFlow(0);
+                self.inner.set_fRtsControl(0);
+                self.inner.set_fOutX(1);
+                self.inner.set_fInX(1);
             }
             core::FlowHardware => {
-                self.inner.fBits |= fOutxCtsFlow | fRtsControl;
-                self.inner.fBits &= !(fOutX | fInX);
+                self.inner.set_fOutxCtsFlow(1);
+                self.inner.set_fRtsControl(1);
+                self.inner.set_fOutX(0);
+                self.inner.set_fInX(0);
             }
         }
     }

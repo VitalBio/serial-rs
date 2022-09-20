@@ -10,6 +10,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["serial", "hardware", "system", "RS232"]
 categories = ["hardware-support", "os", "os::unix-apis"]
+edition = "2021"
 
 [dependencies]
 serial-core = { version = "0.4", path = "../serial-core" }

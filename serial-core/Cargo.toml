@@ -10,6 +10,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["serial", "hardware", "system", "RS232"]
 categories = ["hardware-support"]
+edition = "2021"
 
 [dependencies]
 libc = "0.2"
